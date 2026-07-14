@@ -1,0 +1,76 @@
+# =============================================================================
+# Ruff 配置文件 (ruff.toml)
+# 适用：FastMCP + Transformers / PyTorch 项目
+# 规范：4空格缩进 | 宽松行宽 | 兼容老版本类型注解
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 全局设置
+# -----------------------------------------------------------------------------
+target-version = "py314"
+line-length = 120                 # ★ ML项目建议放宽至100-120，因为张量形状定义很长
+indent-width = 4
+
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "__pypackages__",
+    "models",                      # ★ 排除大模型权重目录
+    "datasets",                    # ★ 排除数据集目录
+]
+
+# -----------------------------------------------------------------------------
+# Linter 配置
+# -----------------------------------------------------------------------------
+[lint]
+select = [
+    "E",      # pycodestyle 错误
+    "W",      # pycodestyle 警告
+    "F",      # Pyflakes (检测未使用变量/导入)
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+    "RUF",    # Ruff 特有
+]
+
+ignore = [
+    "RUF001",  # 允许中文字符
+    "E501",    # ★ 允许行过长（配合 formatter 的 wrap 逻辑，或者因为长字符串）
+    "B008",    # ★ 允许默认参数为函数调用（FastMCP 装饰器常用，如 @mcp.tool()）
+    "SIM108",  # 允许 if-else 赋值（ML代码中为了可读性有时比三元运算好）
+    "UP045",   # ★ 禁用 PEP 604 (X | Y)，PyTorch/Transformers 源码仍大量使用 Optional[X]
+]
+
+# 允许未使用的变量（在 ML 原型代码中很常见，如 batch_idx）
+[lint.dummy-variable-rgx]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*)|dummy.*)$"
+
+# isort 配置
+[lint.isort]
+force-single-line = false
+split-on-trailing-comma = true
+known-first-party = ["my_mcp_server"]  # ★ 填你的项目名
+# ★ 针对 ML 库的分组
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-third-party = ["torch", "transformers", "fastmcp", "numpy"]
+
+# -----------------------------------------------------------------------------
+# Formatter 配置
+# -----------------------------------------------------------------------------
+[format]
+indent-style = "space"
+quote-style = "double"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ★ 针对 FastMCP 装饰器的特殊处理
+[format.docstring-code-format]
+enabled = true
+# 避免在长字符串（如 Prompt 模板）中强行折行
+# [format.skip]
+# # 跳过包含长 base64 或长 prompt 的文件
+# # exclude = ["prompts/*"]
