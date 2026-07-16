@@ -39,6 +39,8 @@ select = [
 
 ignore = [
     "RUF001",  # 允许中文字符
+    "RUF002",  # 允许中文标点
+    "RUF003",  # 允许中文字符
     "E501",    # ★ 允许行过长（配合 formatter 的 wrap 逻辑，或者因为长字符串）
     "B008",    # ★ 允许默认参数为函数调用（FastMCP 装饰器常用，如 @mcp.tool()）
     "SIM108",  # 允许 if-else 赋值（ML代码中为了可读性有时比三元运算好）
@@ -46,7 +48,6 @@ ignore = [
 ]
 
 # 允许未使用的变量（在 ML 原型代码中很常见，如 batch_idx）
-[lint.dummy-variable-rgx]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*)|dummy.*)$"
 
 # isort 配置
@@ -66,10 +67,7 @@ indent-style = "space"
 quote-style = "double"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-# ★ 针对 FastMCP 装饰器的特殊处理
-[format.docstring-code-format]
-enabled = true
+docstring-code-format = true
 # 避免在长字符串（如 Prompt 模板）中强行折行
 # [format.skip]
 # # 跳过包含长 base64 或长 prompt 的文件
