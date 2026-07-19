@@ -21,7 +21,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sam3", "src/run"]
+packages = ["src/sam3", "src/run", "src/transform"]
 
 [[tool.uv.index]]
 name = "pytorch-cuda"

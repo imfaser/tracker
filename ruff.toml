@@ -54,7 +54,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*)|dummy.*)$"
 [lint.isort]
 force-single-line = false
 split-on-trailing-comma = true
-known-first-party = ["my_mcp_server"]  # ★ 填你的项目名
+known-first-party = ["sam3", "transform"]
 # ★ 针对 ML 库的分组
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 known-third-party = ["torch", "transformers", "fastmcp", "numpy"]

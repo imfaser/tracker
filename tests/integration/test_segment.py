@@ -1,44 +1,83 @@
+import base64
 import os
 
 import pytest
 
+from sam3.config import Settings
+from sam3.io import save_mask
 from sam3.models import load_models
-from sam3.schemas import SegmentRequest
+from sam3.schemas.mcp import MCPRequest
 from sam3.tracker import Sam3Tracker
+from transform.segment import mcp_to_sam3
+
+
+def _image_to_base64(image_path: str) -> str:
+    """将图像文件转换为 base64 字符串"""
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 @pytest.fixture(scope="module")
 def tracker():
-    os.environ["MODEL_NAME"] = r"D:\code\tmp\sam3"
-    models = load_models()
-    return Sam3Tracker(models)
+    settings = Settings(
+        model_name=r"D:\code\tmp\sam3",
+        device="auto",
+        output_dir="./out",
+    )
+    models = load_models(settings)
+    return Sam3Tracker(models), settings
 
 
 @pytest.mark.integration
 def test_segment_with_point(test_image, tracker, tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-    req = SegmentRequest(image_path=test_image, p_point=[[100, 100]])
-    result = tracker.segment(req)
-    assert os.path.exists(result)
-    assert result.endswith("_mask.png")
+    tracker_instance, settings = tracker
+    settings.output_dir = str(tmp_path)
+
+    image_b64 = _image_to_base64(test_image)
+    req = MCPRequest(image=image_b64, p_point=[[100, 100]])
+    sam3_req = mcp_to_sam3(req)
+
+    result_mask = tracker_instance.segment(sam3_req)
+    result_path = save_mask(result_mask, settings.output_dir)
+
+    assert os.path.exists(result_path)
+    assert result_path.endswith("_mask.png")
 
 
 @pytest.mark.integration
 def test_segment_with_box(test_image, tracker, tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-    req = SegmentRequest(image_path=test_image, boxes=[[50, 50, 150, 150]])
-    result = tracker.segment(req)
-    assert os.path.exists(result)
+    tracker_instance, settings = tracker
+    settings.output_dir = str(tmp_path)
+
+    image_b64 = _image_to_base64(test_image)
+    req = MCPRequest(image=image_b64, boxes=[[50, 50, 150, 150]])
+    sam3_req = mcp_to_sam3(req)
+
+    result_mask = tracker_instance.segment(sam3_req)
+    result_path = save_mask(result_mask, settings.output_dir)
+
+    assert os.path.exists(result_path)
 
 
 @pytest.mark.integration
 def test_segment_with_prev_mask(test_image, tracker, tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    tracker_instance, settings = tracker
+    settings.output_dir = str(tmp_path)
 
-    req1 = SegmentRequest(image_path=test_image, p_point=[[100, 100]])
-    first_mask = tracker.segment(req1)
+    image_b64 = _image_to_base64(test_image)
 
-    req2 = SegmentRequest(image_path=test_image, prev_mask=first_mask, p_point=[[100, 100]])
-    second_mask = tracker.segment(req2)
-    assert os.path.exists(second_mask)
-    assert first_mask != second_mask
+    req1 = MCPRequest(image=image_b64, p_point=[[100, 100]])
+    sam3_req1 = mcp_to_sam3(req1)
+    first_mask = tracker_instance.segment(sam3_req1)
+    first_mask_path = save_mask(first_mask, settings.output_dir)
+
+    with open(first_mask_path, "rb") as f:
+        mask_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    req2 = MCPRequest(image=image_b64, prev_mask=mask_b64, p_point=[[100, 100]])
+    sam3_req2 = mcp_to_sam3(req2)
+    second_mask = tracker_instance.segment(sam3_req2)
+    second_mask_path = save_mask(second_mask, settings.output_dir)
+
+    assert os.path.exists(second_mask_path)
+    assert first_mask_path != second_mask_path
