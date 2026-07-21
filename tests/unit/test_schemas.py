@@ -5,86 +5,124 @@ import pytest
 from PIL import Image
 from pydantic import ValidationError
 
-from sam3.schemas.mcp import MCPRequest
+from sam3.schemas.mcp import BoundingBox, MCPRequest, Object, PointPrompt
 
 
 def _make_base64_image():
-    """创建测试用的 base64 图像字符串"""
     img = Image.new("RGB", (100, 100), color=(255, 255, 255))
     buffer = BytesIO()
     img.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def test_valid_point_request():
-    image_b64 = _make_base64_image()
-    req = MCPRequest(image=image_b64, p_point=[[100, 200]])
-    assert req.image == image_b64
-    assert req.p_point == [[100, 200]]
+# --- PointPrompt ---
 
 
-def test_valid_box_request():
-    image_b64 = _make_base64_image()
-    req = MCPRequest(image=image_b64, boxes=[[75, 275, 1725, 850]])
-    assert req.boxes == [[75, 275, 1725, 850]]
+def test_point_prompt_positive():
+    p = PointPrompt(coords=(100, 200), label=1)
+    assert p.coords == (100, 200)
+    assert p.label == 1
 
 
-def test_valid_prev_mask_request():
-    image_b64 = _make_base64_image()
-    mask_b64 = _make_base64_image()
-    req = MCPRequest(image=image_b64, prev_mask=mask_b64)
-    assert req.prev_mask == mask_b64
+def test_point_prompt_negative():
+    p = PointPrompt(coords=(50, 50), label=0)
+    assert p.label == 0
 
 
-def test_valid_mixed_request():
+def test_point_prompt_invalid_label():
+    with pytest.raises(ValidationError, match="label 必须是 0 或 1"):
+        PointPrompt(coords=(10, 10), label=2)
+
+
+# --- BoundingBox ---
+
+
+def test_bounding_box_valid():
+    b = BoundingBox(coords=(75.0, 275.0, 1725.0, 850.0))
+    assert b.coords == (75.0, 275.0, 1725.0, 850.0)
+
+
+# --- Object ---
+
+
+def test_object_points_only():
+    obj = Object(points=[PointPrompt(coords=(100, 200), label=1)])
+    assert len(obj.points) == 1
+    assert obj.box is None
+
+
+def test_object_box_only():
+    obj = Object(box=BoundingBox(coords=(1, 2, 3, 4)))
+    assert obj.points == []
+    assert obj.box is not None
+
+
+def test_object_mixed():
+    obj = Object(
+        points=[PointPrompt(coords=(10, 10), label=1)],
+        box=BoundingBox(coords=(1, 2, 3, 4)),
+    )
+    assert len(obj.points) == 1
+    assert obj.box is not None
+
+
+def test_object_no_prompt_raises():
+    with pytest.raises(ValidationError, match="至少需要一个提示"):
+        Object()
+
+
+# --- MCPRequest ---
+
+
+def test_valid_single_object():
     image_b64 = _make_base64_image()
     req = MCPRequest(
         image=image_b64,
-        p_point=[[100, 200]],
-        n_point=[[50, 50]],
-        boxes=[[10, 10, 100, 100]],
+        objects=[Object(points=[PointPrompt(coords=(100, 200), label=1)])],
     )
-    assert len(req.p_point) == 1
-    assert len(req.n_point) == 1
-    assert len(req.boxes) == 1
-
-
-def test_no_prompt_raises():
-    image_b64 = _make_base64_image()
-    with pytest.raises(ValidationError, match="至少需要一种提示"):
-        MCPRequest(image=image_b64)
-
-
-def test_empty_lists_raises():
-    image_b64 = _make_base64_image()
-    with pytest.raises(ValidationError, match="至少需要一种提示"):
-        MCPRequest(image=image_b64, p_point=[], n_point=[], boxes=[])
-
-
-def test_box_wrong_count_raises():
-    image_b64 = _make_base64_image()
-    with pytest.raises(ValidationError, match="boxes\\[0\\] 需要恰好 4 个值"):
-        MCPRequest(image=image_b64, boxes=[[75, 275]])
-
-
-def test_box_too_many_values_raises():
-    image_b64 = _make_base64_image()
-    with pytest.raises(ValidationError, match="boxes\\[0\\] 需要恰好 4 个值"):
-        MCPRequest(image=image_b64, boxes=[[1, 2, 3, 4, 5]])
-
-
-def test_multimask_default_true():
-    image_b64 = _make_base64_image()
-    req = MCPRequest(image=image_b64, p_point=[[0, 0]])
+    assert len(req.objects) == 1
     assert req.multimask_output is True
 
 
-def test_multimask_false():
+def test_valid_multi_object():
     image_b64 = _make_base64_image()
-    req = MCPRequest(image=image_b64, p_point=[[0, 0]], multimask_output=False)
-    assert req.multimask_output is False
+    req = MCPRequest(
+        image=image_b64,
+        objects=[
+            Object(points=[PointPrompt(coords=(100, 200), label=1)]),
+            Object(box=BoundingBox(coords=(10, 10, 100, 100))),
+        ],
+    )
+    assert len(req.objects) == 2
+
+
+def test_valid_prev_mask():
+    image_b64 = _make_base64_image()
+    mask_b64 = _make_base64_image()
+    req = MCPRequest(
+        image=image_b64,
+        objects=[Object(points=[PointPrompt(coords=(0, 0), label=1)])],
+        prev_mask=mask_b64,
+    )
+    assert req.prev_mask == mask_b64
+
+
+def test_empty_objects_raises():
+    image_b64 = _make_base64_image()
+    with pytest.raises(ValidationError, match="至少需要一个 object"):
+        MCPRequest(image=image_b64, objects=[])
 
 
 def test_missing_image_raises():
     with pytest.raises(ValidationError):
-        MCPRequest(p_point=[[0, 0]])  # type: ignore[call-arg]
+        MCPRequest(objects=[Object(points=[PointPrompt(coords=(0, 0), label=1)])])  # type: ignore[call-arg]
+
+
+def test_multimask_false():
+    image_b64 = _make_base64_image()
+    req = MCPRequest(
+        image=image_b64,
+        objects=[Object(points=[PointPrompt(coords=(0, 0), label=1)])],
+        multimask_output=False,
+    )
+    assert req.multimask_output is False

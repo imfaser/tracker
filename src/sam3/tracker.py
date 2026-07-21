@@ -13,7 +13,7 @@ class Sam3Tracker:
         self._device = models.device
 
     def segment(self, req: SAM3Request) -> torch.Tensor:
-        """执行图像分割，返回 mask tensor"""
+        """执行图像分割，多物体时合并为单个 mask 返回"""
         inputs = self._processor(
             images=req.image,
             input_points=req.input_points,
@@ -39,6 +39,11 @@ class Sam3Tracker:
             best_idx = best_idx.unsqueeze(0)
 
         batch_size, point_batch_size = best_idx.shape
-        result_mask = torch.stack(masks)[torch.arange(batch_size), torch.arange(point_batch_size), best_idx].squeeze()
+        stacked = torch.stack(masks)  # (batch, objects, num_masks, H, W)
+        per_object = stacked[torch.arange(batch_size), torch.arange(point_batch_size), best_idx]
 
-        return result_mask
+        merged = per_object[0].bool()
+        for i in range(1, per_object.shape[0]):
+            merged = merged | per_object[i].bool()
+
+        return merged.float()
