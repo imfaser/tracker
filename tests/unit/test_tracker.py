@@ -43,3 +43,25 @@ def test_tracker_segment_returns_tensor():
 
     assert isinstance(result, torch.Tensor)
     tracker._model.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_tracker_segment_multi_object_merges_to_2d():
+    """2 个 object（box）时，point_batch_size=2，结果应合并为 (H, W)"""
+    tracker = _make_tracker()
+
+    mock_outputs = MagicMock()
+    mock_outputs.iou_scores = torch.tensor([[[0.9, 0.8, 0.7], [0.6, 0.95, 0.5]]])
+    mock_outputs.pred_masks = torch.randn(1, 2, 3, 100, 100)
+    tracker._model.return_value = mock_outputs  # type: ignore[attr-defined]
+
+    tracker._processor.post_process_masks.return_value = [torch.randn(2, 3, 100, 100)]  # type: ignore[attr-defined]
+    mock_processor_result = MagicMock()
+    mock_processor_result.to.return_value = {"original_sizes": torch.tensor([[100, 100]])}
+    tracker._processor.return_value = mock_processor_result  # type: ignore[attr-defined]
+
+    req = _make_sam3_request(input_boxes=torch.tensor([[[10, 10, 50, 50], [60, 60, 90, 90]]]))
+    result = tracker.segment(req)
+
+    assert isinstance(result, torch.Tensor)
+    assert result.dim() == 2
+    assert result.shape == (100, 100)

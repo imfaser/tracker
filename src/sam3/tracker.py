@@ -42,8 +42,6 @@ class Sam3Tracker:
         stacked = torch.stack(masks)  # (batch, objects, num_masks, H, W)
         per_object = stacked[torch.arange(batch_size), torch.arange(point_batch_size), best_idx]
 
-        merged = per_object[0].bool()
-        for i in range(1, per_object.shape[0]):
-            merged = merged | per_object[i].bool()
+        merged = per_object[0].bool().any(dim=0)
 
-        return merged.float()
+        return merged.float().cpu()

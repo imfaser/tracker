@@ -49,6 +49,8 @@ def save_mask(mask: torch.Tensor, output_dir: str) -> str:
     os.makedirs(output_dir, exist_ok=True)
 
     while mask.dim() > 2:
+        if mask.shape[0] != 1:
+            raise ValueError(f"mask shape {tuple(mask.shape)} 无法压缩到 2D")
         mask = mask.squeeze(0)
 
     mask_np = (mask.detach().cpu().numpy() * 255).clip(0, 255).astype("uint8")

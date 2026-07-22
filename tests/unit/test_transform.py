@@ -163,6 +163,30 @@ def test_mcp_to_sam3_mixed():
     sam3_req = mcp_to_sam3(req)
     assert sam3_req.input_points is not None
     assert sam3_req.input_boxes is not None
+    assert sam3_req.input_points.shape[1] == sam3_req.input_boxes.shape[1]
+
+
+def test_mcp_to_sam3_multi_object_box_and_points():
+    """多对象各自带 box+point 时，points 和 boxes 的 object 维必须对齐"""
+    image_b64 = _make_base64_image()
+    req = MCPRequest(
+        image=image_b64,
+        objects=[
+            Object(
+                points=[PointPrompt(coords=(50, 50), label=1)],
+                box=BoundingBox(coords=(10, 10, 80, 80)),
+            ),
+            Object(
+                points=[PointPrompt(coords=(150, 150), label=1)],
+                box=BoundingBox(coords=(120, 120, 190, 190)),
+            ),
+        ],
+    )
+    sam3_req = mcp_to_sam3(req)
+    assert sam3_req.input_points is not None
+    assert sam3_req.input_boxes is not None
+    assert sam3_req.input_points.shape[1] == 2
+    assert sam3_req.input_boxes.shape[1] == 2
 
 
 def test_mcp_to_sam3_multimask_false():
