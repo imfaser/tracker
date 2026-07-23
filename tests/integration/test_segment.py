@@ -114,6 +114,45 @@ def test_segment_with_prev_mask(test_image, tracker, tmp_path):
 
 
 @pytest.mark.integration
+def test_segment_mask_only(test_image, tracker, tmp_path):
+    """仅 prev_mask（objects=[]）端到端分割"""
+    tracker_instance, settings = tracker
+    settings.output_dir = str(tmp_path)
+
+    image_b64 = _image_to_base64(test_image)
+
+    req1 = MCPRequest(
+        image=image_b64,
+        objects=[Object(points=[PointPrompt(coords=(100, 100), label=1)])],
+    )
+    sam3_req1 = mcp_to_sam3(req1)
+    first_mask = tracker_instance.segment(sam3_req1)
+    first_mask_path = save_mask(first_mask, settings.output_dir)
+
+    with open(first_mask_path, "rb") as f:
+        mask_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    req2 = MCPRequest(
+        image=image_b64,
+        prev_mask=mask_b64,
+        objects=[],
+    )
+    sam3_req2 = mcp_to_sam3(req2)
+
+    assert sam3_req2.input_points is None
+    assert sam3_req2.input_labels is None
+    assert sam3_req2.input_boxes is None
+    assert sam3_req2.input_masks is not None
+
+    second_mask = tracker_instance.segment(sam3_req2)
+    second_mask_path = save_mask(second_mask, settings.output_dir)
+
+    assert os.path.exists(second_mask_path)
+    assert first_mask_path != second_mask_path
+    _assert_valid_mask(second_mask)
+
+
+@pytest.mark.integration
 def test_segment_multi_object_merges_mask(test_image, tracker, tmp_path):
     tracker_instance, settings = tracker
     settings.output_dir = str(tmp_path)

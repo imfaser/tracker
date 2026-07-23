@@ -109,8 +109,16 @@ def test_valid_prev_mask():
 
 def test_empty_objects_raises():
     image_b64 = _make_base64_image()
-    with pytest.raises(ValidationError, match="至少需要一个 object"):
+    with pytest.raises(ValidationError, match="objects 和 prev_mask 至少提供一个"):
         MCPRequest(image=image_b64, objects=[])
+
+
+def test_mask_only_passes():
+    image_b64 = _make_base64_image()
+    mask_b64 = _make_base64_image()
+    req = MCPRequest(image=image_b64, objects=[], prev_mask=mask_b64)
+    assert req.objects == []
+    assert req.prev_mask == mask_b64
 
 
 def test_missing_image_raises():

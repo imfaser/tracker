@@ -46,7 +46,7 @@ class MCPRequest(BaseModel):
     multimask_output: bool = True
 
     @model_validator(mode="after")
-    def validate_objects_not_empty(self) -> MCPRequest:
-        if not self.objects:
-            raise ValueError("至少需要一个 object")
+    def validate_has_prompt(self) -> MCPRequest:
+        if not self.objects and not self.prev_mask:
+            raise ValueError("objects 和 prev_mask 至少提供一个")
         return self
